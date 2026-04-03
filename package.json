@@ -1,10 +1,11 @@
 {
   "name": "claude-code-accounts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Manage multiple Claude Code accounts on one machine — shared config, separate credentials",
   "type": "module",
   "bin": {
-    "claude-code-accounts": "bin/cli.js"
+    "claude-code-accounts": "bin/cli.js",
+    "claude-acc": "bin/cli.js"
   },
   "files": [
     "bin/cli.js",

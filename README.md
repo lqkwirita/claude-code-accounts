@@ -25,7 +25,7 @@ npm install -g claude-code-accounts
 ## Quick start
 
 ```bash
-claude-code-accounts add <name>     # creates account, configures shell, opens Claude to log in
+claude-acc add <name>       # creates account, configures shell, opens Claude to log in
 claude-<name>               # use your second account
 ```
 
