@@ -1,18 +1,32 @@
-# claude-multi
+# claude-code-accounts
 
 Use multiple Claude Code accounts on one machine. Shared settings, separate credentials.
+
+## The problem
+
+Claude Code Pro costs $20/month and gives you generous usage limits. If you hit those limits, the only upgrade is Max at $100/month — 5× the cost for 5× the limits.
+
+But what if you just need 2× or 3× the capacity? You can grab another Pro account for $20, but now you're stuck with:
+
+- **Constant login/logout** — switching accounts means re-authenticating every time
+- **Lost settings** — your plugins, skills, MCP servers, and preferences don't carry over
+- **Separate histories** — project context and session history stay locked to each account
+
+`claude-code-accounts` fixes all of this. Every account shares your settings, plugins, skills, and project history through symlinks. Only credentials stay separate. Switch accounts by typing `claude-<name>` instead of `claude` — no login screens, no re-configuring, no friction.
+
+**2 Pro accounts ($40/month) > 1 Max account ($100/month)** for most people who just need more capacity.
 
 ## Install
 
 ```bash
-npm install -g claude-multi
+npm install -g claude-code-accounts
 ```
 
 ## Quick start
 
 ```bash
-claude-multi add work       # creates account, configures shell, opens Claude to log in
-claude-work                 # use your second account
+claude-code-accounts add <name>     # creates account, configures shell, opens Claude to log in
+claude-<name>               # use your second account
 ```
 
 That's it. One command does everything:
@@ -26,8 +40,7 @@ All accounts share settings, plugins, skills, and history from `~/.claude` via s
 
 ```
 ~/.claude/              ← primary account (source of truth)
-~/.claude-work/         ← symlinks to ~/.claude + own credentials
-~/.claude-personal/     ← symlinks to ~/.claude + own credentials
+~/.claude-<name>/       ← symlinks to ~/.claude + own credentials
 ```
 
 ## Commands
@@ -43,11 +56,11 @@ All accounts share settings, plugins, skills, and history from `~/.claude` via s
 
 ```bash
 claude              # default account
-claude-work         # second account (auto-syncs before launch)
-claude-personal     # third account
+claude-second       # second account (auto-syncs before launch)
+claude-third        # third account
 ```
 
-All arguments pass through: `claude-work -c`, `claude-work "fix the bug"`, etc.
+All arguments pass through: `claude-second -c`, `claude-second "fix the bug"`, etc.
 
 ## After updating Claude Code
 

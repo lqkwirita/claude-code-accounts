@@ -6,14 +6,14 @@ import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const HOME = homedir();
 const CLAUDE_HOME = join(HOME, '.claude');
 const CLAUDE_JSON = join(HOME, '.claude.json');
 const CREDENTIAL_FILES = new Set(['.claude.json']);
 const SKIP_FILES = new Set(['.DS_Store', 'backups']);
 const SYNC_KEYS = ['installMethod', 'autoUpdates', 'autoUpdatesProtectedForNative', 'lastOnboardingVersion'];
-const SHELL_INIT_LINE = 'eval "$(claude-multi shell-init)"';
+const SHELL_INIT_LINE = 'eval "$(claude-code-accounts shell-init)"';
 
 // ── Helpers ──
 
@@ -116,7 +116,7 @@ function shellInitInstalled() {
   const configPath = getShellConfigPath();
   if (!configPath || !existsSync(configPath)) return false;
   const content = readFileSync(configPath, 'utf8');
-  return content.includes('claude-multi shell-init');
+  return content.includes('claude-code-accounts shell-init');
 }
 
 async function ensureShellInit() {
@@ -130,12 +130,12 @@ async function ensureShellInit() {
   }
 
   const shortPath = configPath.replace(HOME, '~');
-  const confirmed = await confirm(`Add claude-multi to ${shortPath}?`);
+  const confirmed = await confirm(`Add claude-code-accounts to ${shortPath}?`);
 
   if (confirmed) {
     const content = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
     const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
-    appendFileSync(configPath, `${newline}\n# claude-multi: auto-generated shell functions\n${SHELL_INIT_LINE}\n`);
+    appendFileSync(configPath, `${newline}\n# claude-code-accounts: auto-generated shell functions\n${SHELL_INIT_LINE}\n`);
     ok(`Added to ${shortPath}`);
 
     info(`Run \`source ${shortPath}\` or open a new terminal.`);
@@ -147,7 +147,7 @@ async function ensureShellInit() {
 // ── Commands ──
 
 async function cmdAdd(name) {
-  if (!validateName(name)) die('Usage: claude-multi add <account-name>');
+  if (!validateName(name)) die('Usage: claude-code-accounts add <account-name>');
   ensureClaude();
 
   const dir = getAccountDir(name);
@@ -166,7 +166,7 @@ async function cmdAdd(name) {
   console.log();
 
   // Launch Claude for login
-  const result = spawnSync('claude', ['--append-system-prompt', `The user just created a new Claude Code account named "${name}" using claude-multi. They need to authenticate. Greet them briefly and tell them to run /login to sign in with their second Claude account. Keep it to 1-2 sentences.`], {
+  const result = spawnSync('claude', ['--append-system-prompt', `The user just created a new Claude Code account named "${name}" using claude-code-accounts. They need to authenticate. Greet them briefly and tell them to run /login to sign in with their second Claude account. Keep it to 1-2 sentences.`], {
     env: { ...process.env, CLAUDE_CONFIG_DIR: dir },
     stdio: 'inherit',
   });
@@ -175,7 +175,7 @@ async function cmdAdd(name) {
 }
 
 async function cmdRemove(name) {
-  if (!validateName(name)) die('Usage: claude-multi remove <account-name>');
+  if (!validateName(name)) die('Usage: claude-code-accounts remove <account-name>');
 
   const dir = getAccountDir(name);
   if (!existsSync(dir)) die(`Account "${name}" not found.`);
@@ -183,7 +183,7 @@ async function cmdRemove(name) {
   // Safety: refuse to delete standalone (non-symlinked) configs
   const settingsPath = join(dir, 'settings.json');
   if (existsSync(settingsPath) && !isSymlink(settingsPath)) {
-    die(`${dir} is a standalone config, not managed by claude-multi.`);
+    die(`${dir} is a standalone config, not managed by claude-code-accounts.`);
   }
 
   const confirmed = await confirm(`Remove account "${name}"? This deletes its credentials.`);
@@ -212,12 +212,12 @@ async function cmdRemove(name) {
     const configPath = getShellConfigPath();
     if (configPath && existsSync(configPath)) {
       const content = readFileSync(configPath, 'utf8');
-      if (content.includes('claude-multi shell-init')) {
+      if (content.includes('claude-code-accounts shell-init')) {
         const cleaned = content
-          .replace(/\n?# claude-multi: auto-generated shell functions\n.*claude-multi shell-init.*\n?/g, '\n')
+          .replace(/\n?# claude-code-accounts: auto-generated shell functions\n.*claude-code-accounts shell-init.*\n?/g, '\n')
           .replace(/\n{3,}/g, '\n\n');
         writeFileSync(configPath, cleaned);
-        ok('Removed claude-multi from shell config (no accounts left).');
+        ok('Removed claude-code-accounts from shell config (no accounts left).');
       }
     }
   }
@@ -240,7 +240,7 @@ function cmdList() {
 
   if (accounts.length === 0) {
     console.log();
-    info('No additional accounts. Run `claude-multi add <name>` to create one.');
+    info('No additional accounts. Run `claude-code-accounts add <name>` to create one.');
   }
   console.log();
 }
@@ -331,23 +331,23 @@ function cmdShellInit() {
   const accounts = getAccounts();
 
   if (accounts.length === 0) {
-    console.error('# No accounts configured. Run `claude-multi add <name>` first.');
+    console.error('# No accounts configured. Run `claude-code-accounts add <name>` first.');
     return;
   }
 
-  console.log('# claude-multi: shell functions with auto-sync');
+  console.log('# claude-code-accounts: shell functions with auto-sync');
 
   for (const name of accounts) {
     const dir = getAccountDir(name);
-    console.log(`claude-${name}() { claude-multi sync -q -a ${name} 2>/dev/null; CLAUDE_CONFIG_DIR='${dir}' claude "$@"; }`);
+    console.log(`claude-${name}() { claude-code-accounts sync -q -a ${name} 2>/dev/null; CLAUDE_CONFIG_DIR='${dir}' claude "$@"; }`);
   }
 }
 
 function cmdHelp() {
   console.log(`
-\x1b[1mclaude-multi\x1b[0m v${VERSION} — Multiple Claude Code accounts, one machine
+\x1b[1mclaude-code-accounts\x1b[0m v${VERSION} — Multiple Claude Code accounts, one machine
 
-\x1b[1mUsage:\x1b[0m  claude-multi <command> [args]
+\x1b[1mUsage:\x1b[0m  claude-code-accounts <command> [args]
 
 \x1b[1mCommands:\x1b[0m
   add <name>                    Create account, configure shell, log in
@@ -356,8 +356,8 @@ function cmdHelp() {
   sync                          Sync symlinks + version info
 
 \x1b[1mQuick start:\x1b[0m
-  claude-multi add work         # does everything — just log in when prompted
-  claude-work                   # use your second account
+  claude-code-accounts add <name>     # does everything — just log in when prompted
+  claude-<name>                       # use your second account
 `);
 }
 
