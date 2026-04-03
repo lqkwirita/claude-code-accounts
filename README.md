@@ -51,6 +51,9 @@ All accounts share settings, plugins, skills, and history from `~/.claude` via s
 | `remove <name>` | Remove an account (with confirmation) |
 | `list` | Show all accounts |
 | `sync` | Sync symlinks + version info |
+| `config` | View what's shared across accounts |
+| `config exclude <item>` | Stop syncing an item |
+| `config include <item>` | Resume syncing an item |
 
 ## Daily usage
 

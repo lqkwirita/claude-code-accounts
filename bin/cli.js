@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
-const VERSION = '1.0.2';
+const VERSION = '1.1.0';
 const HOME = homedir();
 const CLAUDE_HOME = join(HOME, '.claude');
 const CLAUDE_JSON = join(HOME, '.claude.json');
@@ -14,6 +14,31 @@ const CREDENTIAL_FILES = new Set(['.claude.json']);
 const SKIP_FILES = new Set(['.DS_Store', 'backups']);
 const SYNC_KEYS = ['installMethod', 'autoUpdates', 'autoUpdatesProtectedForNative', 'lastOnboardingVersion'];
 const SHELL_INIT_LINE = 'eval "$(claude-acc shell-init)"';
+const CONFIG_FILE = join(HOME, '.claude-acc.json');
+
+// ── Config ──
+
+function loadConfig() {
+  try {
+    if (existsSync(CONFIG_FILE)) {
+      return JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
+    }
+  } catch { /* skip */ }
+  return { exclude: [] };
+}
+
+function saveConfig(config) {
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n');
+}
+
+function getExcludeSet() {
+  const config = loadConfig();
+  const exclude = new Set(config.exclude || []);
+  // Always exclude these regardless of config
+  for (const f of SKIP_FILES) exclude.add(f);
+  for (const f of CREDENTIAL_FILES) exclude.add(f);
+  return exclude;
+}
 
 // ── Helpers ──
 
@@ -66,10 +91,10 @@ function getAccounts() {
 }
 
 function createSymlinks(dir) {
+  const exclude = getExcludeSet();
   const entries = readdirSync(CLAUDE_HOME, { withFileTypes: true });
   for (const entry of entries) {
-    if (CREDENTIAL_FILES.has(entry.name)) continue;
-    if (SKIP_FILES.has(entry.name)) continue;
+    if (exclude.has(entry.name)) continue;
     const link = join(dir, entry.name);
     if (existsSync(link) || isSymlink(link)) continue;
     symlinkSync(join(CLAUDE_HOME, entry.name), link);
@@ -286,6 +311,7 @@ function cmdSync({ quiet = false, accountName = null } = {}) {
   }
 
   // Sync symlinks
+  const exclude = getExcludeSet();
   for (const name of accounts) {
     const dir = getAccountDir(name);
     if (!existsSync(dir)) continue;
@@ -293,7 +319,7 @@ function cmdSync({ quiet = false, accountName = null } = {}) {
     try {
       const claudeEntries = readdirSync(CLAUDE_HOME);
       for (const entry of claudeEntries) {
-        if (CREDENTIAL_FILES.has(entry) || SKIP_FILES.has(entry)) continue;
+        if (exclude.has(entry)) continue;
         const link = join(dir, entry);
         if (existsSync(link) || isSymlink(link)) continue;
         symlinkSync(join(CLAUDE_HOME, entry), link);
@@ -327,6 +353,99 @@ function cmdSync({ quiet = false, accountName = null } = {}) {
   }
 }
 
+function cmdConfig(action, item) {
+  const config = loadConfig();
+
+  // No args — show current config + available items
+  if (!action) {
+    ensureClaude();
+    const allItems = readdirSync(CLAUDE_HOME).filter(
+      f => !CREDENTIAL_FILES.has(f) && !SKIP_FILES.has(f)
+    ).sort();
+    const excluded = new Set(config.exclude || []);
+
+    console.log();
+    console.log(`  \x1b[1mSync configuration\x1b[0m  (~/.claude-acc.json)`);
+    console.log();
+
+    for (const item of allItems) {
+      if (excluded.has(item)) {
+        console.log(`  \x1b[31m✗\x1b[0m ${item}  \x1b[33m(excluded)\x1b[0m`);
+      } else {
+        console.log(`  \x1b[32m✓\x1b[0m ${item}`);
+      }
+    }
+
+    console.log();
+    info('Use `claude-acc config exclude <item>` or `claude-acc config include <item>` to change.');
+    console.log();
+    return;
+  }
+
+  if (action === 'exclude') {
+    if (!item) die('Usage: claude-acc config exclude <item>');
+
+    // Validate item exists in ~/.claude
+    if (!existsSync(join(CLAUDE_HOME, item))) {
+      die(`"${item}" not found in ~/.claude`);
+    }
+
+    const excluded = config.exclude || [];
+    if (excluded.includes(item)) {
+      info(`"${item}" is already excluded.`);
+      return;
+    }
+
+    excluded.push(item);
+    config.exclude = excluded.sort();
+    saveConfig(config);
+    ok(`Excluded "${item}" from syncing.`);
+
+    // Remove existing symlinks for this item in all accounts
+    const accounts = getAccounts();
+    for (const name of accounts) {
+      const link = join(getAccountDir(name), item);
+      if (isSymlink(link)) {
+        unlinkSync(link);
+        ok(`Removed symlink for "${item}" from ${name}`);
+      }
+    }
+    return;
+  }
+
+  if (action === 'include') {
+    if (!item) die('Usage: claude-acc config include <item>');
+
+    const excluded = config.exclude || [];
+    const idx = excluded.indexOf(item);
+    if (idx === -1) {
+      info(`"${item}" is already included.`);
+      return;
+    }
+
+    excluded.splice(idx, 1);
+    config.exclude = excluded;
+    saveConfig(config);
+    ok(`Included "${item}" back in syncing.`);
+
+    // Add symlinks for this item in all accounts
+    const accounts = getAccounts();
+    const source = join(CLAUDE_HOME, item);
+    if (existsSync(source)) {
+      for (const name of accounts) {
+        const link = join(getAccountDir(name), item);
+        if (!existsSync(link) && !isSymlink(link)) {
+          symlinkSync(source, link);
+          ok(`Added symlink for "${item}" to ${name}`);
+        }
+      }
+    }
+    return;
+  }
+
+  die(`Unknown config action: ${action}. Use "exclude" or "include".`);
+}
+
 function cmdShellInit() {
   const accounts = getAccounts();
 
@@ -354,6 +473,9 @@ function cmdHelp() {
   remove <name>                 Remove an account
   list                          Show all accounts
   sync                          Sync symlinks + version info
+  config                        View what's shared across accounts
+  config exclude <item>         Stop syncing an item
+  config include <item>         Resume syncing an item
 
 \x1b[1mQuick start:\x1b[0m
   claude-acc add <name>               # does everything — just log in when prompted
@@ -385,6 +507,7 @@ switch (command) {
   case 'list':
   case 'ls':         cmdList(); break;
   case 'sync':       cmdSync({ quiet: flags.quiet, accountName: flags.accountName }); break;
+  case 'config':     cmdConfig(positional[0], positional[1]); break;
   case 'shell-init': cmdShellInit(); break;
   case '--version':
   case '-v':         console.log(VERSION); break;
