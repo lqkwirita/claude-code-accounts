@@ -1,0 +1,29 @@
+{
+  "name": "claude-multi",
+  "version": "1.0.0",
+  "description": "Manage multiple Claude Code accounts on one machine — shared config, separate credentials",
+  "type": "module",
+  "bin": {
+    "claude-multi": "bin/cli.js"
+  },
+  "files": [
+    "bin/cli.js",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "multi-account",
+    "cli",
+    "anthropic"
+  ],
+  "author": "Manikandan Annamalai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manikandan-22/claude-multi.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
