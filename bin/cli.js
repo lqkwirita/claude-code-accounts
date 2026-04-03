@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const HOME = homedir();
 const CLAUDE_HOME = join(HOME, '.claude');
 const CLAUDE_JSON = join(HOME, '.claude.json');
