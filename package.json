@@ -1,15 +1,20 @@
 {
   "name": "claude-code-accounts",
-  "version": "1.1.1",
-  "description": "Manage multiple Claude Code accounts on one machine — shared config, separate credentials",
+  "version": "2.0.0",
+  "description": "Managed terminal Claude Code profile configuration selection",
   "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check bin/cli.js"
+  },
   "bin": {
     "claude-code-accounts": "bin/cli.js",
     "claude-acc": "bin/cli.js"
   },
   "files": [
     "bin/cli.js",
-    "README.md"
+    "README.md",
+    "docs/source-assumptions.md"
   ],
   "keywords": [
     "claude",
