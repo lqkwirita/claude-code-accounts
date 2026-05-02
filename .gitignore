@@ -1,2 +1,32 @@
 node_modules/
 .DS_Store
+
+# Local research and agent workspace artifacts
+.context/
+
+# Environment and package-manager credentials
+.env
+.env.*
+.npmrc
+
+# Claude local configuration and credentials
+.claude/
+.claude-*
+.claude.json
+.credentials.json
+.credentials.*
+claude_desktop_config.json
+
+# Private keys and certificate bundles
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Generated local output
+*.log
+*.tgz
+coverage/
+tmp/
+temp/

@@ -1,20 +1,31 @@
 # claude-code-accounts
 
-Use multiple Claude Code accounts on one machine. Shared settings, separate credentials.
+Managed terminal Claude Code profile configuration selection.
 
-## The problem
+As of 2026-05-02, this package automatically selects isolated **terminal Claude Code** profile configuration with `CLAUDE_CONFIG_DIR`. It does **not** claim automatic Claude Desktop Chat, Claude Desktop Code, or Cowork account switching. Desktop/Cowork work remains gated behind a separate feasibility review.
 
-Claude Code Pro costs $20/month and gives you generous usage limits. If you hit those limits, the only upgrade is Max at $100/month — 5× the cost for 5× the limits.
+## Why this exists
 
-But what if you just need 2× or 3× the capacity? You can grab another Pro account for $20, but now you're stuck with:
+Claude Code supports alternate config directories with `CLAUDE_CONFIG_DIR`. This tool wraps that primitive with safer local profile management:
 
-- **Constant login/logout** — switching accounts means re-authenticating every time
-- **Lost settings** — your plugins, skills, MCP servers, and preferences don't carry over
-- **Separate histories** — project context and session history stay locked to each account
+- managed profiles under `~/.claude-acc/`;
+- private profile config directories;
+- default-deny sharing instead of live symlinking everything from `~/.claude`;
+- credential and transcript isolation by default;
+- effective-auth auditing for environment variables, `apiKeyHelper`, and settings-defined auth risks;
+- migration inspection for legacy `~/.claude-*` directories.
 
-`claude-code-accounts` fixes all of this. Every account shares your settings, plugins, skills, and project history through symlinks. Only credentials stay separate. Switch accounts by typing `claude-alt` instead of `claude` — no login screens, no re-configuring, no friction.
+Use this wording carefully: the tool selects a **profile config**. It only claims an account/email identity after user attestation or a future official machine-readable identity source.
 
-**2 Pro accounts ($40/month) > 1 Max account ($100/month)** for most people who just need more capacity.
+## Support Matrix
+
+| Surface | Status |
+|---|---|
+| Terminal Claude Code CLI | Supported: automatic profile config selection |
+| Claude Desktop Code tab | Not supported yet; feasibility required |
+| Claude Desktop Chat | Manual/OS-user isolation only |
+| Claude Cowork | Manual/OS-user isolation only |
+| Claude web/mobile | Out of scope |
 
 ## Install
 
@@ -22,98 +33,139 @@ But what if you just need 2× or 3× the capacity? You can grab another Pro acco
 npm install -g claude-code-accounts
 ```
 
-## Quick start
+## Create Profiles
 
 ```bash
-claude-acc add alt          # creates account, configures shell, opens Claude to log in
-claude-alt                  # use your second account
+claude-acc profile create personal --email personal@example.com --preset personal-balanced
+claude-acc profile create company --email work@example.com --preset work-standard
+claude-acc profile create client --email client@example.com --preset client-strict
 ```
 
-That's it. One command does everything:
-1. Creates the account directory with symlinks to `~/.claude`
-2. Detects your shell and adds aliases to `~/.zshrc` / `~/.bashrc` (asks permission)
-3. Opens Claude Code so you can `/login`
+Compatibility alias:
 
-## How it works
-
-All accounts share settings, plugins, skills, and history from `~/.claude` via symlinks. Only OAuth credentials are separate. Install a plugin once — every account sees it.
-
+```bash
+claude-acc add personal --no-launch
 ```
-~/.claude/              ← primary account (source of truth)
-~/.claude-alt/          ← symlinks to ~/.claude + own credentials
-~/.claude-team/         ← symlinks to ~/.claude + own credentials
+
+Generated shell functions:
+
+```bash
+eval "$(claude-acc shell-init)"
+claude-personal
+claude-company
+claude-client
 ```
+
+The generated functions call `claude-acc run <profile>` and set `CLAUDE_CONFIG_DIR` for the selected profile.
+
+## Login and Run
+
+```bash
+claude-acc login personal
+claude-acc run personal -- --help
+```
+
+During login, run `/login` if Claude does not prompt automatically, then run `/status` and verify the visible account before account-sensitive work.
+
+## Audits
+
+```bash
+claude-acc doctor personal
+claude-acc doctor personal --effective-auth --json
+claude-acc share audit personal
+claude-acc migrate inspect --json
+```
+
+`doctor` reports:
+
+- registry/profile validity;
+- managed-file state;
+- denied files accidentally present in a profile;
+- effective-auth risks from parent environment and settings;
+- managed MCP policy presence;
+- Desktop attestation status when Desktop support is added later.
+
+## Sharing Policy
+
+New profiles do not share transcripts, history, project memory, tasks, caches, telemetry, or credentials.
+
+Default allowlist:
+
+- `skills/`
+- `commands/`
+- `output-styles/`
+
+Default denylist includes:
+
+- `.credentials.json`
+- `.credentials.*`
+- `.claude.json`
+- `projects/`
+- `history.jsonl`
+- `sessions/`
+- `tasks/`
+- `todos/`
+- `cache/`
+- `telemetry/`
+- unknown top-level entries
+
+Apply allowed copies explicitly:
+
+```bash
+claude-acc share audit personal
+claude-acc share apply personal --dry-run
+claude-acc share apply personal
+```
+
+Copying is symlink-safe by default: symlinks are not followed, absolute targets and path escapes are denied, and copied files are recorded in `managed-files.json`.
+
+## Migration
+
+Legacy directories such as `~/.claude-alt` are not managed automatically.
+
+```bash
+claude-acc migrate inspect --json
+claude-acc migrate import alt --as personal --dry-run
+claude-acc migrate import alt --as personal
+```
+
+Legacy cleanup defaults to quarantine/rename, not deletion:
+
+```bash
+claude-acc migrate cleanup alt --dry-run
+claude-acc migrate cleanup alt
+```
+
+Deletion requires an explicit delete command and typed confirmation.
+
+## Security Notes
+
+- `CLAUDE_CONFIG_DIR` selects config; it is not proof of account identity.
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, cloud-provider vars, `apiKeyHelper`, and `CLAUDE_CODE_OAUTH_TOKEN` can affect terminal Claude Code auth.
+- `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` is treated as a blocking host-managed-routing sentinel.
+- Whole `.claude.json` files are never copied or symlinked between profiles.
+- Linux/Windows `.credentials.json` is never copied or symlinked between profiles.
+- Plugins, MCP servers, hooks, and settings are high risk and require review before sharing.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `claude-acc add <name>` | Create account, configure shell, log in |
-| `claude-acc remove <name>` | Remove an account (with confirmation) |
-| `claude-acc list` | Show all accounts |
-| `claude-acc sync` | Sync symlinks + version info |
-| `claude-acc config` | View what's shared across accounts |
-| `claude-acc config exclude <item>` | Stop syncing an item |
-| `claude-acc config include <item>` | Resume syncing an item |
-
-## Daily usage
-
 ```bash
-claude              # default account
-claude-alt          # second account (auto-syncs before launch)
-claude-team         # third account
+claude-acc profile create <name> [--email email] [--preset preset]
+claude-acc profile list [--json]
+claude-acc profile show <name> [--json]
+claude-acc add <name> [--email email] [--no-launch]
+claude-acc login <name>
+claude-acc run <name> -- [claude args...]
+claude-acc doctor [name] [--json]
+claude-acc share <plan|audit|apply|enable|disable> <name> [item] [--json] [--dry-run]
+claude-acc migrate <inspect|import|cleanup> ...
+claude-acc shell-init
 ```
-
-All arguments pass through: `claude-alt -c`, `claude-alt "fix the bug"`, etc.
-
-## After updating Claude Code
-
-Nothing to do — shell functions auto-sync before every launch. New plugins, skills, and version info are picked up automatically.
-
-## Selective sync
-
-By default, everything in `~/.claude` is shared. You can exclude specific items if you want accounts to have independent data for certain things.
-
-```bash
-claude-acc config                       # view what's shared and what's excluded
-claude-acc config exclude projects      # stop sharing project history
-claude-acc config include projects      # share it again
-```
-
-Available items you can exclude or include:
-
-| Item | What it contains |
-|------|-----------------|
-| `settings.json` | Claude Code settings and preferences |
-| `plugins` | Installed plugins |
-| `skills` | Custom skills |
-| `projects` | Project-specific context and memory |
-| `plans` | Saved plans |
-| `todos` | Todo lists |
-| `tasks` | Background tasks |
-| `sessions` | Session data |
-| `history.jsonl` | Command history |
-| `cache` | Cached data |
-| `statsig` | Feature flags |
-| `telemetry` | Usage telemetry |
-
-Config is stored in `~/.claude-acc.json`. Excluding an item immediately removes its symlink from all accounts. Including it adds it back.
-
-## What's shared vs separate
-
-| Shared (default) | Always separate |
-|-------------------|----------------|
-| Settings, plugins, skills | OAuth credentials |
-| Projects, history, plans | Keychain entries (macOS) |
-| Everything in `~/.claude` | `.claude.json` per account |
-| Configurable via `config` | Crash recovery backups |
 
 ## Requirements
 
 - Node.js 18+
-- Claude Code installed
-- macOS or Linux
+- Claude Code installed for `run`/`login`
+- macOS, Linux, or Windows for terminal Claude Code profile config selection
 
-## License
-
-MIT
+Claude Desktop/Cowork support is not claimed by this release.
